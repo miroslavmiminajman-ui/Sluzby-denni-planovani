@@ -1,0 +1,5 @@
+{
+  "name": "Služby - denní plánování",
+  "description": "Nástroj pro analýzu excelových dat a plánování služeb pro libovolnou pobočku s automatickým výpočtem denního cíle.",
+  "requestFramePermissions": []
+}
