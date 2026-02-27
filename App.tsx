@@ -22,7 +22,7 @@ import { getRemainingDaysInfo } from './utils/dateUtils';
 const App: React.FC = () => {
   const [allCalculations, setAllCalculations] = useState<CalculationResult[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>("");
-  const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
+  const [manualOverrides, setManualOverrides] = useState<Record<string, { serviceAsistRevenue?: number; revenueRR?: number }>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -59,12 +59,14 @@ const App: React.FC = () => {
     if (!baseData) return null;
 
     // Pokud existuje manuální override, použijeme ho a přepočítáme cíl
-    const currentServiceAsist = manualOverrides[selectedBranch] ?? baseData.serviceAsistRevenue;
+    const branchOverrides = manualOverrides[selectedBranch];
+    const currentServiceAsist = branchOverrides?.serviceAsistRevenue ?? baseData.serviceAsistRevenue;
+    const currentRevenueRR = branchOverrides?.revenueRR ?? baseData.revenueRR;
     
     const daysInfo = getRemainingDaysInfo();
     // weightedDays = počet všedních dní + (váha * počet víkendových dní)
     const weightedDays = daysInfo.weekdays + (weekendWeight * daysInfo.weekends);
-    const remainingTotalRevenue = (baseData.revenueRR * baseData.planAsrServicesRevenue) - currentServiceAsist;
+    const remainingTotalRevenue = (currentRevenueRR * baseData.planAsrServicesRevenue) - currentServiceAsist;
     
     // finalValue je cíl pro 1.0 (všední den)
     const recalculatedFinalValue = weightedDays > 0 ? remainingTotalRevenue / weightedDays : 0;
@@ -72,6 +74,7 @@ const App: React.FC = () => {
     return {
       ...baseData,
       serviceAsistRevenue: currentServiceAsist,
+      revenueRR: currentRevenueRR,
       finalValue: recalculatedFinalValue
     };
   }, [allCalculations, selectedBranch, manualOverrides, weekendWeight]);
@@ -187,11 +190,14 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdateServiceAsist = (newValue: number) => {
+  const handleUpdateOverride = (field: 'serviceAsistRevenue' | 'revenueRR', newValue: number) => {
     if (!selectedBranch) return;
     setManualOverrides(prev => ({
       ...prev,
-      [selectedBranch]: newValue
+      [selectedBranch]: {
+        ...(prev[selectedBranch] || {}),
+        [field]: newValue
+      }
     }));
   };
 
@@ -450,14 +456,19 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 lg:space-y-5">
-                  <ValueRow label="PREDIKOVANÝ OBRAT" value={filteredResult.revenueRR} />
+                  <ValueRow 
+                    label="PREDIKOVANÝ OBRAT" 
+                    value={filteredResult.revenueRR} 
+                    editable 
+                    onValueChange={(val: number) => handleUpdateOverride('revenueRR', val)}
+                  />
                   <ValueRow label="PLÁN SLUŽEB" value={filteredResult.planAsrServicesRevenue} isPercent truncate />
                   <ValueRow 
                     label="ASR SLUŽBY" 
                     value={filteredResult.serviceAsistRevenue} 
                     isGreen 
                     editable 
-                    onValueChange={handleUpdateServiceAsist}
+                    onValueChange={(val: number) => handleUpdateOverride('serviceAsistRevenue', val)}
                   />
                 </div>
 
